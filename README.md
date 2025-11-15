@@ -4,7 +4,8 @@
 1. Установить Desctop Docker или другую среду для работы с n8n
 2. Установить n8n версии 1.118 и выше
 ```bash
-docker run -it --rm ^
+docker run -d ^
+  --name n8n-palatineSP ^
   -p 5678:5678 ^
   -v %USERPROFILE%\.n8n:/home/node/.n8n ^
   -e N8N_USER_FOLDER=/home/node/.n8n ^
