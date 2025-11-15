@@ -1,0 +1,331 @@
+{
+  "name": "Palatine Speech API — Healthcheck Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "={{ $json.method }}",
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "model",
+              "value": "palatine_small"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -1344,
+        48
+      ],
+      "id": "f729fff8-804a-495a-b3cf-6fd554781303",
+      "name": "HTTP Request",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "14370040-8729-453f-9eca-8ef03ed5b37b",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -384,
+        48
+      ],
+      "id": "3f3e2db2-681f-4420-8570-b240f56f0ff6",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const json = item.json;\n\n  // 1. Извлекаем данные в зависимости от структуры\n  let status, body, executionTime, errorMessageFromRequest = '';\n  let hasError = false;\n\n  if (json.error) {\n    // Случай: ошибка запроса (404, таймаут, DNS и т.д.)\n    hasError = true;\n    status = json.error.status || null;\n    body = null;\n    executionTime = json.executionTime || 0;\n    errorMessageFromRequest = json.error.message || json.error.name || 'Unknown request error';\n  } else {\n    // Случай: запрос успешен, есть statusCode и body\n    status = json.statusCode || json.status; // поддерживаем оба варианта\n    body = json.body;\n    executionTime = json.executionTime || 0;\n  }\n\n  // 2. Берём метаданные проверки\n  const checkName = $('Prepare Request').first().json.checkName || 'unknown';\n  const successCriteria = json.successCriteria || {};\n\n  // 3. Оцениваем результат\n  let isOk = false;\n  let errorMessage = '';\n\n  try {\n    const expectedStatus = successCriteria.statusCode || 200;\n\n    // Если был провал запроса — сразу ошибка\n    if (hasError) {\n      errorMessage = `Request failed: ${errorMessageFromRequest}`;\n    } else if (status !== expectedStatus) {\n      errorMessage = `HTTP ${status} ≠ expected ${expectedStatus}`;\n    } else if (!body || typeof body !== 'object') {\n      errorMessage = 'Empty or invalid JSON response';\n    } else {\n      // Дополнительные проверки (для httpbin или Palatine)\n      if (successCriteria.mustHaveFile) {\n        const fileName = successCriteria.mustHaveFile;\n        if (!body.files?.[fileName]) {\n          errorMessage = `Missing file \"${fileName}\" in response`;\n        } else if (successCriteria.fileContentContains) {\n          const content = body.files[fileName];\n          if (!content.includes(successCriteria.fileContentContains)) {\n            errorMessage = `File \"${fileName}\" does not contain expected text`;\n          }\n        }\n      }\n\n      if (!errorMessage && successCriteria.mustHaveFormFields) {\n        for (const field of successCriteria.mustHaveFormFields) {\n          if (body.form?.[field] === undefined) {\n            errorMessage = `Missing form field: \"${field}\"`;\n            break;\n          }\n        }\n      }\n    }\n\n    isOk = !errorMessage;\n\n  } catch (e) {\n    errorMessage = 'Evaluation error: ' + e.message;\n  }\n\n  return {\n    json: {\n      checkName,\n      isOk,\n      errorMessage: errorMessage || errorMessageFromRequest,\n      latencyMs: executionTime,\n      statusCode: status,\n      // Для дебага:\n      // rawError: json.error,\n      // responseBody: body\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1104,
+        48
+      ],
+      "id": "dcb36f7a-ea26-43ca-8195-03e1f5d17a77",
+      "name": "Evaluate Result"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nif (items.length === 0) {\n  return [{ json: { checkName: 'no_input', isSkipped: true } }];\n}\n\nconst config = items[0].json;\n\n// Поддержка checks как объекта или массива\nlet checks = [];\nif (Array.isArray(config.checks)) {\n  checks = config.checks.filter(c => c.enabled !== false);\n} else if (config.checks && typeof config.checks === 'object') {\n  if (config.checks.enabled !== false) {\n    checks = [config.checks];\n  }\n}\n\nif (checks.length === 0) {\n  return [{ json: { checkName: 'no_active_checks', isSkipped: true } }];\n}\n\nreturn checks.map(check => {\n  // Очищаем apiBaseUrl от пробелов\n  const baseUrl = (config.apiBaseUrl || 'https://api.palatine.ru').trim();\n  const url = baseUrl + $input.first().json.checks.endpoint;\n\n  return {\n    json: {\n      // Метаданные — для логов и Telegram\n      checkName: check.name || 'unknown',\n      telegramChatId: config.telegramChatId,\n      projectName: config.projectName,\n      environment: config.environment,\n\n      // Запрос\n      method: check.method || 'POST',\n      url: url,\n      timeout: (check.timeoutSeconds || 15) * 1000,\n      headers: {\n        'User-Agent': 'n8n-healthcheck'\n        // Authorization будет добавлен в HTTP Request через Expression\n      },\n\n      // Тело запроса\n      payloadType: check.payloadType || 'file',\n      fileUrl: check.payloadType === 'file' ? check.testData?.fileUrl : undefined,\n      formDataFields: { ...check.testData },\n      \n      // Убираем fileUrl из полей формы, если он есть\n      ...(check.payloadType === 'file' && check.testData?.fileUrl && {\n        formDataFields: {\n          ...check.testData,\n          fileUrl: undefined\n        }\n      }),\n\n      // Для Evaluate Result\n      successCriteria: check.successCriteria || {}\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3040,
+        48
+      ],
+      "id": "5002bcb2-fbdd-4369-a92e-f8cd6db7fb66",
+      "name": "Prepare Request"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": "=300 + {{ Math.floor(Math.random() * 30) }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -3904,
+        48
+      ],
+      "id": "948ba77a-2611-4a95-96c0-8c1a1d6ea54c",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "checks",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -3488,
+        48
+      ],
+      "id": "496bda1e-59f4-494b-9f9a-9e25ff67c0d4",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Config').item.json.TelegramChatID }}",
+        "text": "=Palatine speech/{{ $('Config').item.json.environment }}\ncheck Name: {{ $json.checkName }}\nendpoint: {{ $('Config').item.json.checks[0].method }} {{ $('Config').item.json.checks[0].endpoint }}\nenvironment: {{ $('Config').item.json.environment }}\nerrorMessage: {{ $json.errorMessage }}\nlatencyMs: {{ $json.latencyMs }}\nstatusCode: {{ $json.statusCode }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -176,
+        144
+      ],
+      "id": "36d099d1-ad58-4ce5-ae10-a14a3c021fe1",
+      "name": "Send a text message",
+      "webhookId": "4b7e84a8-e260-4dd7-93c6-f93328e2125b",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Function node, режим \"Run Once for All Items\"\nconst items = $input.all();\n\nfor (const item of items) {\n  const { logEntry } = item.json;\n  if (logEntry) {\n    // Лог в Execution (видно в UI)\n    console.log('📝 Healthcheck log:', JSON.stringify(logEntry, null, 2));\n  }\n}\n\nreturn items; // продолжаем workflow"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b9e6b939-b0ed-4dbc-98ae-3ebf20a17c75",
+      "name": "Final log"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"apiBaseUrl\": \"https://api.palatine.ru\",\n  \"TelegramChatID\":\n  -5053770284,\n  \"environment\":\n  \"test\",\n  \"checks\": [\n    {\n      \"name\": \"transcribe_test\",\n      \"endpoint\": \"/api/v1/audio/transcriptions\",\n      \"method\": \"POST\",\n      \"payloadType\": \"file\",\n      \"testData\": {\n        \"fileUrl\": \"https://drive.google.com/uc?export=download&id=1pnDP7upE58em8ll5xzMHukn3g9X4b6NE\",\n        \"language\": \"ru\",\n        \"format\": \"text\",\n        \"text\": \"\",\n        \"voiceId\": \"\"\n      },\n      \"successCriteria\": {\n        \"statusCode\": 200,\n        \"bodyPath\": \"form.language\",\n        \"expectedValue\": \"ru\"\n      }\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3712,
+        48
+      ],
+      "id": "1f243a20-f71a-428f-8c18-cb4468304b8b",
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').item.json.checks[0].testData.fileUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -2720,
+        256
+      ],
+      "id": "e7afefd7-62c2-4f6c-ad8e-6205713b33fb",
+      "name": "HTTP Request1",
+      "executeOnce": false,
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Function node, режим \"Run Once for All Items\"\nconst items = $input.all();\n\nfor (const item of items) {\n  const { logEntry } = item.json;\n  if (logEntry) {\n    // Лог в Execution (видно в UI)\n    console.log('📝 Healthcheck log:', JSON.stringify(logEntry, null, 2));\n  }\n}\n\nreturn items; // продолжаем workflow"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        128
+      ],
+      "id": "514ff1bc-48fb-48ed-b91b-6bae3b699ee7",
+      "name": "Final log1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Final log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Final log1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Result": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Prepare Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7cba36a2-60c6-4db5-933a-bc85bb751c00",
+  "meta": {
+    "instanceId": "dedf9809813d6f5ea35c2ad8bb17c168a7c73174ea422da3a02cc150597d7787"
+  },
+  "id": "K2HfcvuNmklVI4wb",
+  "tags": []
+}
