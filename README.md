@@ -13,7 +13,7 @@ docker run -it --rm ^
 3. Запустить среду
 
 ### Как использовать
-1.Импортировать файл Palatine Speech API.json как воркфлоу
+1.Импортировать файл Palatine Speech API — Healthcheck Workflow.json как воркфлоу
 
 2.Создать credentials (palatine_bearer, telegram_bot).
 
