@@ -1,0 +1,467 @@
+{
+  "name": "Palatine Speech API — Healthcheck Workflow tg",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -4272,
+        480
+      ],
+      "id": "4702b62c-64eb-4ca0-a33e-524984bac9c9",
+      "name": "Telegram Trigger",
+      "webhookId": "ec369aa8-0763-44f8-af87-fc12033c3c6d",
+      "credentials": {
+        "telegramApi": {
+          "id": "VxobC3LRmrN90XeV",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "checks",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -3472,
+        480
+      ],
+      "id": "94003462-d24a-40cc-892d-3089dc47a9f2",
+      "name": "Split Out1"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"apiBaseUrl\": \"https://api.palatine.ru\",\n  \"TelegramChatID\":\n  -5053770284,\n  \"environment\":\n  \"test\",\n  \"checks\": [\n    {\n      \"name\": \"transcribe test using tg\",\n      \"endpoint\": \"/api/v1/audio/transcriptions\",\n      \"method\": \"POST\",\n      \"payloadType\": \"file\",\n      \"testData\": {\n        \"fileUrl\": \"https://drive.google.com/uc?export=download&id=1pnDP7upE58em8ll5xzMHukn3g9X4b6NE\",\n        \"language\": \"ru\",\n        \"format\": \"text\",\n        \"text\": \"\",\n        \"voiceId\": \"\"\n      },\n      \"successCriteria\": {\n        \"statusCode\": 200,\n        \"bodyPath\": \"form.language\",\n        \"expectedValue\": \"ru\"\n      }\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3648,
+        480
+      ],
+      "id": "750b6a73-8af4-4a2f-a599-ef76272a79e4",
+      "name": "Config_for_tg_msg"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nif (items.length === 0) {\n  return [{ json: { checkName: 'no_input', isSkipped: true } }];\n}\n\nconst config = items[0].json;\n\n// Поддержка checks как объекта или массива\nlet checks = [];\nif (Array.isArray(config.checks)) {\n  checks = config.checks.filter(c => c.enabled !== false);\n} else if (config.checks && typeof config.checks === 'object') {\n  if (config.checks.enabled !== false) {\n    checks = [config.checks];\n  }\n}\n\nif (checks.length === 0) {\n  return [{ json: { checkName: 'no_active_checks', isSkipped: true } }];\n}\n\nreturn checks.map(check => {\n  // Очищаем apiBaseUrl от пробелов\n  const baseUrl = (config.apiBaseUrl || 'https://api.palatine.ru').trim();\n  const url = baseUrl + $input.first().json.checks.endpoint;\n\n  return {\n    json: {\n      // Метаданные — для логов и Telegram\n      checkName: check.name || 'unknown',\n      telegramChatId: config.telegramChatId,\n      projectName: config.projectName,\n      environment: config.environment,\n\n      // Запрос\n      method: check.method || 'POST',\n      url: url,\n      timeout: (check.timeoutSeconds || 15) * 1000,\n      headers: {\n        'User-Agent': 'n8n-healthcheck'\n        // Authorization будет добавлен в HTTP Request через Expression\n      },\n\n      // Тело запроса\n      payloadType: check.payloadType || 'file',\n      fileUrl: check.payloadType === 'file' ? check.testData?.fileUrl : undefined,\n      formDataFields: { ...check.testData },\n      \n      // Убираем fileUrl из полей формы, если он есть\n      ...(check.payloadType === 'file' && check.testData?.fileUrl && {\n        formDataFields: {\n          ...check.testData,\n          fileUrl: undefined\n        }\n      }),\n\n      // Для Evaluate Result\n      successCriteria: check.successCriteria || {}\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3024,
+        480
+      ],
+      "id": "5967c279-8c47-4911-98c3-e7da4b23c5ce",
+      "name": "Prepare Request_tg"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config_for_tg_msg').item.json.checks[0].testData.fileUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -2704,
+        688
+      ],
+      "id": "06a9952f-94cc-443c-a430-7abaa0ddab46",
+      "name": "Download_file",
+      "executeOnce": false,
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.method }}",
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "model",
+              "value": "palatine_small"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -1328,
+        480
+      ],
+      "id": "66ed891b-9a3a-4273-ba0b-12608589c984",
+      "name": "Send_a_request",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "EhAcWnlqWjs6TnzU",
+          "name": "Bearer Auth account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const json = item.json;\n\n  // 1. Извлекаем данные в зависимости от структуры\n  let status, body, executionTime, errorMessageFromRequest = '';\n  let hasError = false;\n\n  if (json.error) {\n    // Случай: ошибка запроса (404, таймаут, DNS и т.д.)\n    hasError = true;\n    status = json.error.status || null;\n    body = null;\n    executionTime = json.executionTime || 0;\n    errorMessageFromRequest = json.error.message || json.error.name || 'Unknown request error';\n  } else {\n    // Случай: запрос успешен, есть statusCode и body\n    status = json.statusCode || json.status; // поддерживаем оба варианта\n    body = json.body;\n    executionTime = json.executionTime || 0;\n  }\n\n  // 2. Берём метаданные проверки\n  const checkName = $('Prepare Request_tg').first().json.checkName || 'unknown';\n  const successCriteria = json.successCriteria || {};\n\n  // 3. Оцениваем результат\n  let isOk = false;\n  let errorMessage = '';\n\n  try {\n    const expectedStatus = successCriteria.statusCode || 200;\n\n    // Если был провал запроса — сразу ошибка\n    if (hasError) {\n      errorMessage = `Request failed: ${errorMessageFromRequest}`;\n    } else if (status !== expectedStatus) {\n      errorMessage = `HTTP ${status} ≠ expected ${expectedStatus}`;\n    } else if (!body || typeof body !== 'object') {\n      errorMessage = 'Empty or invalid JSON response';\n    } else {\n      // Дополнительные проверки (для httpbin или Palatine)\n      if (successCriteria.mustHaveFile) {\n        const fileName = successCriteria.mustHaveFile;\n        if (!body.files?.[fileName]) {\n          errorMessage = `Missing file \"${fileName}\" in response`;\n        } else if (successCriteria.fileContentContains) {\n          const content = body.files[fileName];\n          if (!content.includes(successCriteria.fileContentContains)) {\n            errorMessage = `File \"${fileName}\" does not contain expected text`;\n          }\n        }\n      }\n\n      if (!errorMessage && successCriteria.mustHaveFormFields) {\n        for (const field of successCriteria.mustHaveFormFields) {\n          if (body.form?.[field] === undefined) {\n            errorMessage = `Missing form field: \"${field}\"`;\n            break;\n          }\n        }\n      }\n    }\n\n    isOk = !errorMessage;\n\n  } catch (e) {\n    errorMessage = 'Evaluation error: ' + e.message;\n  }\n\n  return {\n    json: {\n      checkName,\n      isOk,\n      errorMessage: errorMessage || errorMessageFromRequest,\n      latencyMs: executionTime,\n      statusCode: status,\n      // Для дебага:\n      // rawError: json.error,\n      // responseBody: body\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1088,
+        480
+      ],
+      "id": "29b87547-a46c-4326-830b-5ce80d7eb1c2",
+      "name": "Evaluate Result_tg"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "14370040-8729-453f-9eca-8ef03ed5b37b",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -368,
+        480
+      ],
+      "id": "5d6a07f8-b86a-4791-9f3f-f64a8d607a16",
+      "name": "Tg_if"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=Palatine speech/{{ $('Config_for_tg_msg').item.json.checks[0].name }}\ncheck Name: {{ $json.checkName }}\nendpoint: {{ $('Config_for_tg_msg').item.json.checks[0].endpoint }}{{ $('Config_for_tg_msg').item.json.checks[0].method }}\nenvironment: {{ $('Config_for_tg_msg').item.json.environment }}\nerrorMessage: {{ $json.errorMessage }}\nlatencyMs: {{ $json.latencyMs }}\nstatusCode: {{ $('Config_for_tg_msg').item.json.checks[0].successCriteria.statusCode }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -96,
+        640
+      ],
+      "id": "1026977a-30dd-411b-9215-3af6c1fab13d",
+      "name": "Negative_answer_for_user",
+      "webhookId": "4b7e84a8-e260-4dd7-93c6-f93328e2125b",
+      "credentials": {
+        "telegramApi": {
+          "id": "VxobC3LRmrN90XeV",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=Palatine speech/{{ $('Config_for_tg_msg').item.json.checks[0].name }}\ncheck Name: {{ $json.checkName }}\nendpoint: {{ $('Config_for_tg_msg').item.json.checks[0].endpoint }}{{ $('Config_for_tg_msg').item.json.checks[0].method }}\nenvironment: {{ $('Config_for_tg_msg').item.json.environment }}\nerrorMessage: {{ $json.errorMessage }}\nlatencyMs: {{ $json.latencyMs }}\nstatusCode: {{ $('Config_for_tg_msg').item.json.checks[0].successCriteria.statusCode }}\n\nВсе работает!",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -96,
+        400
+      ],
+      "id": "4fa76b74-dfa2-4265-9a9e-d6a95c9deaa9",
+      "name": "Positive_answer_for_user",
+      "webhookId": "4b7e84a8-e260-4dd7-93c6-f93328e2125b",
+      "credentials": {
+        "telegramApi": {
+          "id": "VxobC3LRmrN90XeV",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Function node, режим \"Run Once for All Items\"\nconst items = $input.all();\n\nfor (const item of items) {\n  const { logEntry } = item.json;\n  if (logEntry) {\n    // Лог в Execution (видно в UI)\n    console.log('📝 Healthcheck log(from tg):', JSON.stringify(logEntry, null, 2));\n  }\n}\n\nreturn items; // продолжаем workflow"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        384
+      ],
+      "id": "70f78c8b-089b-47b7-ad53-77274c8877b6",
+      "name": "Final log(tg)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Function node, режим \"Run Once for All Items\"\nconst items = $input.all();\n\nfor (const item of items) {\n  const { logEntry } = item.json;\n  if (logEntry) {\n    // Лог в Execution (видно в UI)\n    console.log('📝 Healthcheck log(from tg):', JSON.stringify(logEntry, null, 2));\n  }\n}\n\nreturn items; // продолжаем workflow"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        640
+      ],
+      "id": "7ac2a1f5-d59c-4d73-a153-bcb1ff9b472c",
+      "name": "Final log2(tg)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9c911c93-1f86-4256-a706-f6c981065db6",
+              "leftValue": "={{ $json.message.text }}",
+              "rightValue": "check",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -4064,
+        480
+      ],
+      "id": "ba6379f1-4e29-408f-aebe-e934a24cae6d",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=Неизвестная команда. Для запуска Palatine HealthCheck напишите *check*",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -3856,
+        688
+      ],
+      "id": "06ef6c0a-a920-4d7d-9897-6b5e7d8923ee",
+      "name": "Wrong_message",
+      "webhookId": "4b7e84a8-e260-4dd7-93c6-f93328e2125b",
+      "credentials": {
+        "telegramApi": {
+          "id": "VxobC3LRmrN90XeV",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        [
+          {
+            "node": "Prepare Request_tg",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config_for_tg_msg": {
+      "main": [
+        [
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Request_tg": {
+      "main": [
+        [
+          {
+            "node": "Download_file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download_file": {
+      "main": [
+        [
+          {
+            "node": "Send_a_request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send_a_request": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Result_tg",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Result_tg": {
+      "main": [
+        [
+          {
+            "node": "Tg_if",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tg_if": {
+      "main": [
+        [
+          {
+            "node": "Positive_answer_for_user",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Negative_answer_for_user",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Positive_answer_for_user": {
+      "main": [
+        [
+          {
+            "node": "Final log(tg)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Negative_answer_for_user": {
+      "main": [
+        [
+          {
+            "node": "Final log2(tg)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final log(tg)": {
+      "main": [
+        []
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Config_for_tg_msg",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wrong_message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "611ba987-598d-4ef2-83d1-2dd5d87119a4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4b0cd5144ba0c0f06c6d75a3d9cb1af5c430047064a790c8a0116f3123f34575"
+  },
+  "id": "EVbdvnjZHhmhpvd1",
+  "tags": []
+}
