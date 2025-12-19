@@ -102,7 +102,7 @@
             {
               "parameterType": "formBinaryData",
               "name": "file",
-              "inputDataFieldName": "data"
+              "inputDataFieldName": "data1"
             },
             {
               "name": "model",
@@ -126,6 +126,8 @@
       ],
       "id": "66ed891b-9a3a-4273-ba0b-12608589c984",
       "name": "Send_a_request",
+      "alwaysOutputData": false,
+      "notesInFlow": false,
       "credentials": {
         "httpBearerAuth": {
           "id": "EhAcWnlqWjs6TnzU",
@@ -179,52 +181,6 @@
       ],
       "id": "5d6a07f8-b86a-4791-9f3f-f64a8d607a16",
       "name": "Tg_if"
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
-        "text": "=Palatine speech/{{ $('Config_for_tg_msg').item.json.checks[0].name }}\ncheck Name: {{ $json.checkName }}\nendpoint: {{ $('Config_for_tg_msg').item.json.checks[0].endpoint }}{{ $('Config_for_tg_msg').item.json.checks[0].method }}\nenvironment: {{ $('Config_for_tg_msg').item.json.environment }}\nerrorMessage: {{ $json.errorMessage }}\nlatencyMs: {{ $json.latencyMs }}\nstatusCode: {{ $('Config_for_tg_msg').item.json.checks[0].successCriteria.statusCode }}",
-        "additionalFields": {}
-      },
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        -96,
-        640
-      ],
-      "id": "1026977a-30dd-411b-9215-3af6c1fab13d",
-      "name": "Negative_answer_for_user",
-      "webhookId": "4b7e84a8-e260-4dd7-93c6-f93328e2125b",
-      "credentials": {
-        "telegramApi": {
-          "id": "VxobC3LRmrN90XeV",
-          "name": "Telegram account"
-        }
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
-        "text": "=Palatine speech/{{ $('Config_for_tg_msg').item.json.checks[0].name }}\ncheck Name: {{ $json.checkName }}\nendpoint: {{ $('Config_for_tg_msg').item.json.checks[0].endpoint }}{{ $('Config_for_tg_msg').item.json.checks[0].method }}\nenvironment: {{ $('Config_for_tg_msg').item.json.environment }}\nerrorMessage: {{ $json.errorMessage }}\nlatencyMs: {{ $json.latencyMs }}\nstatusCode: {{ $('Config_for_tg_msg').item.json.checks[0].successCriteria.statusCode }}\n\nВсе работает!",
-        "additionalFields": {}
-      },
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [
-        -96,
-        400
-      ],
-      "id": "4fa76b74-dfa2-4265-9a9e-d6a95c9deaa9",
-      "name": "Positive_answer_for_user",
-      "webhookId": "4b7e84a8-e260-4dd7-93c6-f93328e2125b",
-      "credentials": {
-        "telegramApi": {
-          "id": "VxobC3LRmrN90XeV",
-          "name": "Telegram account"
-        }
-      },
-      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -288,26 +244,66 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
-        "text": "=Неизвестная команда. Для запуска Palatine HealthCheck напишите *check*",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "Неизвестная команда. Для запуска Palatine HealthCheck напишите *check*",
         "additionalFields": {}
       },
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "type": "n8n-nodes-telegram-multi.telegramMulti",
+      "typeVersion": 1,
       "position": [
-        -3856,
-        688
+        -3680,
+        704
       ],
-      "id": "06ef6c0a-a920-4d7d-9897-6b5e7d8923ee",
-      "name": "Wrong_message",
-      "webhookId": "4b7e84a8-e260-4dd7-93c6-f93328e2125b",
+      "id": "b5f6e1ef-31fa-485a-b514-70ca12c7d300",
+      "name": "Send a message",
       "credentials": {
-        "telegramApi": {
-          "id": "VxobC3LRmrN90XeV",
-          "name": "Telegram account"
+        "telegramMultiApi": {
+          "id": "1i4S1xw5VtMeE1Bg",
+          "name": "Telegram Multi account"
         }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=Palatine speech/{{ $('Config_for_tg_msg').item.json.checks[0].name }}\ncheck Name: {{ $json.checkName }}\nendpoint: {{ $('Config_for_tg_msg').item.json.checks[0].endpoint }}  {{ $('Config_for_tg_msg').item.json.checks[0].method }}\nenvironment: {{ $('Config_for_tg_msg').item.json.environment }} errorMessage: {{ $json.errorMessage }} \nlatencyMs: {{ $json.latencyMs }} \nstatusCode: {{ $('Config_for_tg_msg').item.json.checks[0].successCriteria.statusCode }}                               \n\nВсе работает!",
+        "additionalFields": {}
       },
-      "onError": "continueRegularOutput"
+      "type": "n8n-nodes-telegram-multi.telegramMulti",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        384
+      ],
+      "id": "ce947fd7-20ad-4e51-a526-368d67ae8955",
+      "name": "Send a message1",
+      "credentials": {
+        "telegramMultiApi": {
+          "id": "1i4S1xw5VtMeE1Bg",
+          "name": "Telegram Multi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=Palatine speech/{{ $('Config_for_tg_msg').item.json.checks[0].name }}\ncheck Name: {{ $json.checkName }}\nendpoint: {{ $('Config_for_tg_msg').item.json.checks[0].endpoint }}{{ $('Config_for_tg_msg').item.json.checks[0].method }}\nenvironment: {{ $('Config_for_tg_msg').item.json.environment }}\nerrorMessage: {{ $('Send_a_request').item.json.error }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-telegram-multi.telegramMulti",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        624
+      ],
+      "id": "8cd98c82-2d55-4fb3-9f7c-1a685ee08ec2",
+      "name": "Send a message2",
+      "credentials": {
+        "telegramMultiApi": {
+          "id": "1i4S1xw5VtMeE1Bg",
+          "name": "Telegram Multi account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -393,36 +389,14 @@
       "main": [
         [
           {
-            "node": "Positive_answer_for_user",
+            "node": "Send a message1",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Negative_answer_for_user",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Positive_answer_for_user": {
-      "main": [
-        [
-          {
-            "node": "Final log(tg)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Negative_answer_for_user": {
-      "main": [
-        [
-          {
-            "node": "Final log2(tg)",
+            "node": "Send a message2",
             "type": "main",
             "index": 0
           }
@@ -445,7 +419,29 @@
         ],
         [
           {
-            "node": "Wrong_message",
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message1": {
+      "main": [
+        [
+          {
+            "node": "Final log(tg)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message2": {
+      "main": [
+        [
+          {
+            "node": "Final log2(tg)",
             "type": "main",
             "index": 0
           }
@@ -457,7 +453,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "611ba987-598d-4ef2-83d1-2dd5d87119a4",
+  "versionId": "822e7c72-bb05-4b6e-bba9-79a20b8553e7",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "4b0cd5144ba0c0f06c6d75a3d9cb1af5c430047064a790c8a0116f3123f34575"
