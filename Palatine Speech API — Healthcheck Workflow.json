@@ -36,9 +36,15 @@
         -1344,
         48
       ],
-      "id": "f729fff8-804a-495a-b3cf-6fd554781303",
+      "id": "18ff4d68-c974-4859-adae-5ccc80eee93c",
       "name": "HTTP Request",
-      "onError": "continueRegularOutput"
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "xjpfB99nPJPxXe7s",
+          "name": "Bearer Auth account"
+        }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -70,7 +76,7 @@
         -384,
         48
       ],
-      "id": "3f3e2db2-681f-4420-8570-b240f56f0ff6",
+      "id": "fed21b29-beba-4e47-9cc7-fbe516d42d7a",
       "name": "If"
     },
     {
@@ -83,7 +89,7 @@
         -1104,
         48
       ],
-      "id": "dcb36f7a-ea26-43ca-8195-03e1f5d17a77",
+      "id": "fcf7306c-a966-4c5a-816d-f4109d8e7a5a",
       "name": "Evaluate Result"
     },
     {
@@ -96,7 +102,7 @@
         -3040,
         48
       ],
-      "id": "5002bcb2-fbdd-4369-a92e-f8cd6db7fb66",
+      "id": "3f87f816-d865-4db3-8a8a-ecf1331e60ca",
       "name": "Prepare Request"
     },
     {
@@ -116,7 +122,7 @@
         -3904,
         48
       ],
-      "id": "948ba77a-2611-4a95-96c0-8c1a1d6ea54c",
+      "id": "1b0944a9-ed70-448c-aa77-3d9fe8464697",
       "name": "Schedule Trigger"
     },
     {
@@ -131,7 +137,7 @@
         -3488,
         48
       ],
-      "id": "496bda1e-59f4-494b-9f9a-9e25ff67c0d4",
+      "id": "2590c710-3735-40b2-bae9-a9fa4c37c2de",
       "name": "Split Out"
     },
     {
@@ -146,7 +152,7 @@
         -176,
         144
       ],
-      "id": "36d099d1-ad58-4ce5-ae10-a14a3c021fe1",
+      "id": "52f80785-a080-4666-8de2-55231cf202d4",
       "name": "Send a text message",
       "webhookId": "4b7e84a8-e260-4dd7-93c6-f93328e2125b",
       "onError": "continueRegularOutput"
@@ -161,7 +167,7 @@
         0,
         0
       ],
-      "id": "b9e6b939-b0ed-4dbc-98ae-3ebf20a17c75",
+      "id": "730e0671-0709-4c76-8ab9-d15c5680945e",
       "name": "Final log"
     },
     {
@@ -176,7 +182,7 @@
         -3712,
         48
       ],
-      "id": "1f243a20-f71a-428f-8c18-cb4468304b8b",
+      "id": "e78b8294-dc66-4794-a41d-06cffe7bf0c9",
       "name": "Config"
     },
     {
@@ -196,7 +202,7 @@
         -2720,
         256
       ],
-      "id": "e7afefd7-62c2-4f6c-ad8e-6205713b33fb",
+      "id": "b14b50f1-36f9-40f1-a372-608ad40f1820",
       "name": "HTTP Request1",
       "executeOnce": false,
       "notesInFlow": true
@@ -211,8 +217,30 @@
         192,
         128
       ],
-      "id": "514ff1bc-48fb-48ed-b91b-6bae3b699ee7",
+      "id": "fcea30a3-bdd4-491d-9397-4de1a8b19b80",
       "name": "Final log1"
+    },
+    {
+      "parameters": {
+        "url": "=https://drive.google.com/uc?export=download&id=1mFqt0DDINTlzHkSCviOtIUvtyGpubU0q",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -2064,
+        528
+      ],
+      "id": "62a668c4-650c-409c-97b2-35e7bf99720c",
+      "name": "HTTP Request3",
+      "executeOnce": false,
+      "notesInFlow": true
     }
   ],
   "pinData": {},
@@ -222,6 +250,13 @@
         [
           {
             "node": "Evaluate Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request3",
             "type": "main",
             "index": 0
           }
@@ -316,16 +351,28 @@
           }
         ]
       ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate"
   },
-  "versionId": "7cba36a2-60c6-4db5-933a-bc85bb751c00",
+  "versionId": "ae146ce7-b9e6-4952-89e7-bdbd2a1363be",
   "meta": {
-    "instanceId": "dedf9809813d6f5ea35c2ad8bb17c168a7c73174ea422da3a02cc150597d7787"
+    "instanceId": "24e68e83522ca119f3fc4299ff95c443d57b2e5255b07c3070c81ecfc4b6808e"
   },
-  "id": "K2HfcvuNmklVI4wb",
+  "id": "pFntBQ5jVXAmZ3TZ",
   "tags": []
 }
